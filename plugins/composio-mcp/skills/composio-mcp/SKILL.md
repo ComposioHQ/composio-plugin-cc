@@ -1,11 +1,11 @@
 ---
 name: composio-mcp
-description: Use Composio MCP tools to interact with 250+ apps — GitHub, Slack, Notion, Gmail, Linear, Jira, and more. Trigger when the user asks to connect an app, execute an action on an external service, or work with integrations.
+description: Use Composio MCP tools to interact with 1000+ apps — GitHub, Slack, Notion, Gmail, Linear, Jira, and more. Trigger when the user asks to connect an app, execute an action on an external service, or work with connectors.
 ---
 
 # Composio MCP
 
-You have access to Composio tools via the MCP server at connect.composio.dev. These tools let you interact with 250+ apps and services the user has connected through Composio. OAuth authentication is handled automatically.
+You have access to Composio tools via the MCP server at connect.composio.dev. These tools let you interact with 1000+ apps and services the user has connected through Composio. OAuth authentication is handled automatically.
 
 ## When to use
 

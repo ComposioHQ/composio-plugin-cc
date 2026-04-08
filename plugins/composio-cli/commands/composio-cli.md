@@ -1,5 +1,5 @@
 ---
-description: Help users operate the Composio CLI to find tools, connect accounts, execute actions, and manage integrations
+description: Help users operate the Composio CLI to find tools, connect accounts, execute actions, and manage connectors
 disable-model-invocation: true
 ---
 

@@ -67,5 +67,5 @@ End with: "What would you like to try first?"
 
 - Use AskUserQuestion at every step — never assume
 - Keep it conversational, not a wall of text
-- If the user names an app not listed above, still try to connect it — Composio supports 250+ apps
+- If the user names an app not listed above, still try to connect it — Composio supports 1000+ apps
 - After onboarding, let the user drive
