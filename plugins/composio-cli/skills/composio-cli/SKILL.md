@@ -7,7 +7,13 @@ description: Help users operate the Composio CLI to find tools, connect accounts
 
 The CLI evolves frequently. Check if an auto-installed `/composio-cli` skill exists at `~/.claude/skills/composio-cli/` — if so, **use that version instead**, it stays in sync with the installed CLI binary.
 
-If no auto-installed skill exists, install it:
+If `composio` is not installed, install it first:
+
+```bash
+curl -fsSL https://composio.dev/install | bash
+```
+
+Then install the Claude Code skill:
 
 ```bash
 composio --install-skill claude
