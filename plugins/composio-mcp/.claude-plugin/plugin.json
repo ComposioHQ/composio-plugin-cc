@@ -1,6 +1,6 @@
 {
   "name": "composio-mcp",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Composio MCP server — gives Claude access to 1000+ apps (GitHub, Slack, Notion, etc.) via MCP.",
   "author": {
     "name": "Composio"

@@ -1,6 +1,6 @@
 {
   "name": "composio-cli",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Composio CLI skills — find tools, connect accounts, execute actions, and manage connectors from Claude Code.",
   "author": {
     "name": "Composio"
