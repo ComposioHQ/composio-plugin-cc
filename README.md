@@ -16,9 +16,10 @@ Add the marketplace and install the plugins you want:
 
 ### composio-mcp
 
-Connects Claude Code to the [Composio MCP server](https://connect.composio.dev/mcp) — gives Claude direct access to 1000+ apps. OAuth is built in, no API keys needed.
+Connects Claude Code to the [Composio Connect MCP server](https://connect.composio.dev/mcp) — gives Claude direct access to 1000+ apps with managed auth, intelligent tool routing, and programmatic tool calling. No API keys needed.
 
 **Skills:**
+- `/composio-mcp:composio-mcp` — how the Connect MCP works: tool discovery, execution, connections, remote workbench
 - `/composio-mcp:onboarding` — interactive setup: pick your apps, connect them, see what you can do
 - `/composio-mcp:company-activity-summary` — cross-app activity summary (Slack, GitHub, Notion, Linear, etc.)
 
@@ -30,9 +31,6 @@ Adds Composio CLI skills to Claude Code. The CLI lets you execute tools, connect
 - `/composio-cli:composio-cli` — points to the auto-installed CLI skill (run `composio --install-skill claude` to get it)
 - `/composio-cli:onboarding` — interactive setup: install CLI, sign in, connect apps
 - `/composio-cli:company-activity-summary` — cross-app activity summary using the CLI
-
-**Command:**
-- `/composio-cli:composio-cli` — ad-hoc CLI help
 
 ## Team setup
 
