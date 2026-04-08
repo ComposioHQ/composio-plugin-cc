@@ -1,0 +1,1 @@
+- generic [ref=e2]: "{\"error\":\"Missing authentication: provide Authorization: Bearer or x-consumer-api-key header\"}"
