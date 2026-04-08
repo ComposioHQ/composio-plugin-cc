@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Wrapper that auto-installs the Composio CLI if not found, then delegates.
+
+# Check if the real composio binary exists outside this plugin's bin/
+REAL_COMPOSIO=""
+while IFS= read -r -d: dir; do
+  [ "$dir" = "$(dirname "$0")" ] && continue
+  [ -x "$dir/composio" ] && REAL_COMPOSIO="$dir/composio" && break
+done <<< "$PATH:"
+
+if [ -z "$REAL_COMPOSIO" ]; then
+  echo "Composio CLI not found. Installing..." >&2
+  curl -fsSL https://composio.dev/install | bash >&2
+  # Re-resolve after install
+  hash -r 2>/dev/null
+  while IFS= read -r -d: dir; do
+    [ "$dir" = "$(dirname "$0")" ] && continue
+    [ -x "$dir/composio" ] && REAL_COMPOSIO="$dir/composio" && break
+  done <<< "$PATH:"
+  if [ -z "$REAL_COMPOSIO" ]; then
+    echo "Failed to install Composio CLI. Run manually: curl -fsSL https://composio.dev/install | bash" >&2
+    exit 1
+  fi
+  echo "Composio CLI installed." >&2
+fi
+
+exec "$REAL_COMPOSIO" "$@"
