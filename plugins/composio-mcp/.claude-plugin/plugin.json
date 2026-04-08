@@ -1,0 +1,18 @@
+{
+  "name": "composio-mcp",
+  "version": "1.0.0",
+  "description": "Composio MCP server — gives Claude access to 250+ app integrations (GitHub, Slack, Notion, etc.) via the Model Context Protocol.",
+  "author": {
+    "name": "Composio"
+  },
+  "homepage": "https://composio.dev",
+  "repository": "https://github.com/ComposioHQ/composio",
+  "license": "MIT",
+  "keywords": ["composio", "mcp", "integrations", "tools"],
+  "userConfig": {
+    "COMPOSIO_API_KEY": {
+      "description": "Your Composio API key (from https://app.composio.dev/settings)",
+      "sensitive": true
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "composio",
+  "owner": {
+    "name": "Composio"
+  },
+  "metadata": {
+    "description": "Composio plugins for Claude Code — connect 250+ apps and tools via MCP and CLI.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "composio-mcp",
+      "description": "Composio MCP server — gives Claude access to 250+ app integrations (GitHub, Slack, Notion, etc.) via the Model Context Protocol.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Composio"
+      },
+      "source": "./plugins/composio-mcp"
+    },
+    {
+      "name": "composio-cli",
+      "description": "Composio CLI skills — find tools, connect accounts, execute actions, and manage integrations from Claude Code.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Composio"
+      },
+      "source": "./plugins/composio-cli"
+    }
+  ]
+}
