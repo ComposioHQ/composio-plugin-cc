@@ -1,7 +1,6 @@
 ---
 name: company-activity-summary
 description: Generates comprehensive company activity summary across connected apps — Slack, GitHub, Notion, Linear, Gmail, and more. Use when user asks for company updates, daily summary, or what's happening across the org.
-disable-model-invocation: true
 ---
 
 # Company Activity Summary (MCP)

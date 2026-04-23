@@ -1,7 +1,6 @@
 ---
 name: onboarding
 description: Interactive onboarding — checks auth, learns what the user wants to automate across their apps, and connects the right ones. Use when the user is new to Composio, says "get started", or asks what apps they can connect.
-disable-model-invocation: true
 ---
 
 # Onboarding (MCP)
