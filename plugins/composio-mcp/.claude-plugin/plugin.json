@@ -11,6 +11,8 @@
   "keywords": ["composio", "mcp", "connectors", "tools"],
   "userConfig": {
     "COMPOSIO_API_KEY": {
+      "type": "string",
+      "title": "Composio API Key",
       "description": "Your Composio API key (from https://app.composio.dev/settings)",
       "sensitive": true
     }

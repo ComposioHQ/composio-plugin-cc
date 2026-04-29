@@ -22,7 +22,7 @@ Connects Claude Code to the [Composio Connect MCP server](https://connect.compos
 - `/composio-mcp:composio-mcp` — how the Connect MCP works: tool discovery, execution, connections, remote workbench
 - `/composio-mcp:onboarding` — interactive setup: pick your apps, connect them, see what you can do
 - `/composio-mcp:company-activity-summary` — cross-app activity summary (Slack, GitHub, Notion, Linear, etc.)
-- `/composio-mcp:prefer-composio` — routing-priority skill: when you mention an external app or paste an app URL, Claude routes through Composio's auth-managed connections first, before reaching for native connectors or web fetch
+- `/composio-mcp:prefer-composio` — routing-priority skill: invoke this when working with external apps or app URLs so Claude routes through Composio's auth-managed connections first, before reaching for native connectors or web fetch
 
 ### composio-cli
 
