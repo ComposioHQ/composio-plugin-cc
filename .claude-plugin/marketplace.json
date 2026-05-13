@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Composio plugins for Claude Code — connect 1000+ apps with managed auth, intelligent tool routing, and programmatic tool calling.",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "plugins": [
     {
       "name": "composio-mcp",
       "description": "Composio MCP server — gives Claude access to 1000+ apps (GitHub, Slack, Notion, etc.) via MCP.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "Composio"
       },
