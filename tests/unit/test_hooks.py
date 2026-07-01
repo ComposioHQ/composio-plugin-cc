@@ -69,16 +69,18 @@ class TestSessionStartHook:
         assert data["hookSpecificOutput"]["hookEventName"] == "SessionStart"
         return data["hookSpecificOutput"]["additionalContext"]
 
-    def _fake_composio(self, tmp_path, signed_in: bool):
+    def _fake_composio(self, tmp_path, exit_code: int, stdout: str = ""):
         """Create a throwaway PATH containing a fake `composio` whose `whoami`
-        succeeds (signed in) or fails (not signed in)."""
+        prints `stdout` and exits with `exit_code`. Sign-in must be decided by
+        the exit code alone, independent of stdout."""
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         script = bindir / "composio"
-        if signed_in:
-            script.write_text('#!/usr/bin/env bash\necho "user@example.com"\nexit 0\n')
-        else:
-            script.write_text('#!/usr/bin/env bash\nexit 1\n')
+        body = "#!/usr/bin/env bash\n"
+        if stdout:
+            body += f"echo {json.dumps(stdout)}\n"
+        body += f"exit {exit_code}\n"
+        script.write_text(body)
         script.chmod(0o755)
         # Keep the real toolchain (jq, bash, coreutils) available too.
         return f"{bindir}:{os.environ.get('PATH', '')}"
@@ -91,13 +93,31 @@ class TestSessionStartHook:
         assert "no api key" not in low, "must not say 'no API keys'"
 
     def test_cli_present_signed_in(self, tmp_path):
-        path = self._fake_composio(tmp_path, signed_in=True)
+        # Exit 0 => signed in.
+        path = self._fake_composio(tmp_path, exit_code=0, stdout="user@example.com")
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "You're signed in to Composio." in ctx
+
+    def test_signed_in_is_exit_code_not_stdout(self, tmp_path):
+        # Exit 0 with EMPTY stdout must still count as signed in — sign-in is
+        # gated on the whoami exit code, never on stdout contents.
+        path = self._fake_composio(tmp_path, exit_code=0, stdout="")
         ctx = self._run(tmp_path, path=path)
         self._assert_meta_search(ctx)
         assert "You're signed in to Composio." in ctx
 
     def test_cli_present_not_signed_in(self, tmp_path):
-        path = self._fake_composio(tmp_path, signed_in=False)
+        # Non-zero exit => not signed in.
+        path = self._fake_composio(tmp_path, exit_code=1)
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "composio login" in ctx
+
+    def test_not_signed_in_even_with_stdout(self, tmp_path):
+        # Non-zero exit must count as NOT signed in even if the CLI printed
+        # something to stdout (e.g. an error banner).
+        path = self._fake_composio(tmp_path, exit_code=1, stdout="Not logged in")
         ctx = self._run(tmp_path, path=path)
         self._assert_meta_search(ctx)
         assert "composio login" in ctx

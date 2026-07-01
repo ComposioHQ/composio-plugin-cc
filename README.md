@@ -81,8 +81,8 @@ make refresh-skill # re-vendor the CLI skill
 
 ## Updating the plugin
 
-Bump `version` in `plugins/composio/.claude-plugin/plugin.json` and the marketplace entry, push, and
-users get updates automatically (if auto-update is on) or via:
+Bump `version` only in `plugins/composio/.claude-plugin/plugin.json` (the single source of truth for
+the plugin version), push, and users get updates automatically (if auto-update is on) or via:
 
 ```
 /plugin marketplace update composio

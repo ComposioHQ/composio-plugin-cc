@@ -38,10 +38,22 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 echo "Downloading composio-skill.zip from $REPO @ $TAG ..."
-gh release download "$TAG" -R "$REPO" -p 'composio-skill.zip' -D "$tmp" --clobber
+if ! gh release download "$TAG" -R "$REPO" -p 'composio-skill.zip' -D "$tmp" --clobber; then
+  echo "ERROR: 'gh release download' failed for $REPO @ $TAG." >&2
+  echo "       Check that the tag exists, gh is authenticated (gh auth status)," >&2
+  echo "       and the release publishes a 'composio-skill.zip' asset." >&2
+  exit 1
+fi
+
+zip="$tmp/composio-skill.zip"
+if [ ! -s "$zip" ]; then
+  echo "ERROR: expected asset 'composio-skill.zip' was not downloaded from $REPO @ $TAG." >&2
+  echo "       The release may not attach that asset. Aborting before extraction." >&2
+  exit 1
+fi
 
 echo "Extracting ..."
-unzip -o -q "$tmp/composio-skill.zip" -d "$tmp/extracted"
+unzip -o -q "$zip" -d "$tmp/extracted"
 
 SRC="$tmp/extracted/composio-cli"
 if [ ! -f "$SRC/SKILL.md" ]; then

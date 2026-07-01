@@ -15,17 +15,17 @@ cat >/dev/null 2>&1 || true   # drain stdin payload; we don't need it
 if ! command -v composio >/dev/null 2>&1; then
   auth="Install the CLI: curl -fsSL https://composio.dev/install | bash, then composio login."
 else
-  # Bounded whoami so a slow CLI can never stall session start.
-  tmp="${TMPDIR:-/tmp}/composio-whoami.$$"
-  who=""
-  ( composio whoami >"$tmp" 2>/dev/null ) & pid=$!
+  # Bounded whoami so a slow CLI can never stall session start. Sign-in is
+  # decided by the EXIT CODE alone (0 = signed in) — never by stdout contents,
+  # which vary across CLI versions and can be empty even when authenticated.
+  signed_in=1
+  ( composio whoami >/dev/null 2>&1 ) & pid=$!
   ( sleep 3; kill -TERM "$pid" 2>/dev/null ) & watcher=$!
   if wait "$pid" 2>/dev/null; then
-    who="$(head -c 200 "$tmp" 2>/dev/null | tr '\n' ' ')"
+    signed_in=0
   fi
   kill -TERM "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
-  rm -f "$tmp" 2>/dev/null
-  if [ -n "$who" ]; then
+  if [ "$signed_in" -eq 0 ]; then
     auth="You're signed in to Composio."
   else
     auth="Run \`composio login\` to connect."
