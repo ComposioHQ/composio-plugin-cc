@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .playwright-mcp/
+
+# local ephemeral worktrees
+.claude/worktrees/

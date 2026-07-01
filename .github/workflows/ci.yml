@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    name: Validate plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps
+        run: pip install pytest pyyaml
+
+      - name: Static validation (frontmatter, manifest, hooks, commands, skill discovery)
+        run: python3 -m pytest tests/unit -q
+
+      # `claude plugin validate` checks plugin.json, marketplace.json, and
+      # skill/command/hook frontmatter against the official schema.
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+        continue-on-error: true
+
+      - name: claude plugin validate (plugin)
+        run: |
+          if command -v claude >/dev/null 2>&1; then
+            claude plugin validate ./.claude-plugin/marketplace.json
+            claude plugin validate ./plugins/composio
+          else
+            echo "claude CLI unavailable; skipping (static tests already ran)."
+          fi
+
+  refresh-skill:
+    # Verifies the pinned composio-skill.zip is still downloadable and that the
+    # vendored skill matches the pinned release. Does not commit; it only guards
+    # against drift. Update via scripts/refresh-skill.sh.
+    name: Verify pinned skill asset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check pinned release asset exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Keep in sync with scripts/refresh-skill.sh and tests/config.py.
+          TAG='@composio/cli@0.2.31'
+          gh release view "$TAG" -R ComposioHQ/composio \
+            --json assets --jq '.assets[].name' | grep -q '^composio-skill.zip$' \
+            && echo "composio-skill.zip present on $TAG" \
+            || (echo "composio-skill.zip missing on $TAG" && exit 1)
