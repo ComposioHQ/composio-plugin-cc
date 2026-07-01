@@ -1,9 +1,13 @@
 # Composio for Claude Code
 
-Connect and act on **[1000+ apps](https://composio.dev/toolkits)** — Slack, GitHub, Gmail, Notion,
-Linear, Google Calendar, Jira, HubSpot, and more — directly from Claude Code, powered by the
-[Composio CLI](https://composio.dev). Composio handles OAuth, permissions, and intelligent tool
+Your agent decides what to do — Composio handles the rest. Make just-in-time tool calls across
+**[1,000+ apps](https://composio.dev/toolkits)** — Slack, GitHub, Gmail, Notion, Linear, Google
+Calendar, Jira, HubSpot, and more — directly from Claude Code, powered by the
+[Composio CLI](https://composio.dev). Composio manages auth, permissions, and intelligent tool
 routing, so the agent can discover, connect, and run tools without you hand-rolling API calls.
+
+Composio's model is **meta search**: instead of pre-loading a fixed toolset, the agent resolves the
+right tool just-in-time for the task at hand — `composio search "<task>"` → `composio execute`.
 
 This is a **single, CLI-based** plugin: all logic lives in the `composio` binary, and the plugin is a
 thin layer of hooks, slash commands, and the generated skill over it. Updating the CLI (`composio
@@ -47,8 +51,7 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 | Component | Purpose |
 |---|---|
 | `skills/composio-cli` | The **real, generated** Composio CLI skill (vendored trimmed from a pinned STABLE CLI release): the full `search → execute → link` workflow, flags, `run`/`proxy`/`listen`, plus `references/composio-dev.md` and `references/troubleshooting.md`. |
-| `hooks/session-start.sh` | **SessionStart** hook: one concise availability + auth-status line (tolerates CLI-not-installed / not-signed-in), and refreshes a cached toolkit-name list from the CLI (`composio dev toolkits list`) in the background for the prompt hook to match against. |
-| `hooks/user-prompt-submit.sh` | **UserPromptSubmit** hook: fast, local match of app/toolkit mentions against the CLI-sourced cache. On a match it injects a minimal pointer to the `composio:composio-cli` skill and `composio search`. No network; never blocks. |
+| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
 | `commands/composio-onboard.md` | `/composio-onboard` — interactive first-time setup. |
 

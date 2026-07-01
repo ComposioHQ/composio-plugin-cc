@@ -1,4 +1,4 @@
-"""Validate the hooks manifest and hook scripts."""
+"""Validate the hooks manifest and the SessionStart hook script."""
 import json
 import os
 import stat
@@ -22,6 +22,13 @@ class TestHooksManifest:
         for event in EXPECTED_HOOK_EVENTS:
             assert event in self.hooks, f"hooks.json missing `{event}` event"
 
+    def test_only_session_start_event(self):
+        # Meta-search redesign: SessionStart is the only hook. In particular the
+        # per-prompt UserPromptSubmit hook must be gone.
+        assert set(self.hooks.keys()) == {"SessionStart"}, (
+            f"hooks.json should define only SessionStart, found {sorted(self.hooks)}"
+        )
+
     def test_commands_use_plugin_root_and_exist(self):
         for event, groups in self.hooks.items():
             for group in groups:
@@ -38,79 +45,17 @@ class TestHooksManifest:
                     assert mode & stat.S_IXUSR, f"{event} hook script not executable: {script}"
 
 
-class TestHookBehavior:
-    """Run the UserPromptSubmit hook to confirm match / no-match behavior.
-
-    The hook matches app mentions against a CLI-sourced cache that SessionStart
-    maintains at ${TMPDIR}/composio-plugin-toolkits.cache. Each test controls
-    that cache by pointing TMPDIR at an isolated tmp dir.
-    """
-
-    SCRIPT = HOOKS_ROOT / "user-prompt-submit.sh"
-
-    def _run(self, prompt: str, tmpdir, cache_entries=None):
-        env = dict(os.environ, TMPDIR=str(tmpdir))
-        cache = os.path.join(str(tmpdir), "composio-plugin-toolkits.cache")
-        if cache_entries is not None:
-            with open(cache, "w") as fh:
-                fh.write("\n".join(cache_entries) + "\n")
-        payload = json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": prompt})
-        return subprocess.run(
-            ["bash", str(self.SCRIPT)],
-            input=payload,
-            capture_output=True,
-            text=True,
-            timeout=15,
-            env=env,
-        )
-
-    def test_injects_on_toolkit_mention_from_cache(self, tmp_path):
-        proc = self._run(
-            "Please open a GitHub issue for this bug",
-            tmp_path,
-            cache_entries=["github", "slack", "gmail"],
-        )
-        assert proc.returncode == 0
-        assert proc.stdout.strip(), "expected additionalContext on a toolkit mention"
-        data = json.loads(proc.stdout)
-        ctx = data["hookSpecificOutput"]["additionalContext"]
-        assert data["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
-        assert "composio" in ctx.lower()
-        assert "composio:composio-cli" in ctx
-
-    def test_no_injection_on_unrelated_prompt(self, tmp_path):
-        proc = self._run(
-            "Refactor this quicksort to be iterative",
-            tmp_path,
-            cache_entries=["github", "slack", "gmail"],
-        )
-        assert proc.returncode == 0
-        assert proc.stdout.strip() == "", "must not inject on unrelated prompts"
-
-    def test_fallback_intent_match_when_cache_absent(self, tmp_path):
-        # No cache written: hook falls back to the minimal generic intent set.
-        proc = self._run("Help me connect my account", tmp_path)
-        assert proc.returncode == 0
-        assert proc.stdout.strip(), "expected fallback intent match without a cache"
-
-    def test_no_fallback_match_for_app_name_without_cache(self, tmp_path):
-        # Without a cache, a bare app name must NOT match (only generic intent does).
-        proc = self._run("Summarize my github activity", tmp_path)
-        assert proc.returncode == 0
-        assert proc.stdout.strip() == "", "app names require the CLI-sourced cache"
-
-    def test_empty_prompt_is_safe(self, tmp_path):
-        proc = self._run("", tmp_path, cache_entries=["github"])
-        assert proc.returncode == 0
-
-
 class TestSessionStartHook:
-    """SessionStart must always emit valid JSON and exit 0, CLI present or not."""
+    """SessionStart must always emit valid JSON with the meta-search guidance and
+    the correct auth line, exit 0, and never seed a toolkit cache — CLI present,
+    absent, signed-in, or not."""
 
     SCRIPT = HOOKS_ROOT / "session-start.sh"
 
-    def test_emits_valid_json(self, tmp_path):
+    def _run(self, tmp_path, path=None):
         env = dict(os.environ, TMPDIR=str(tmp_path))
+        if path is not None:
+            env["PATH"] = path
         proc = subprocess.run(
             ["bash", str(self.SCRIPT)],
             input=json.dumps({"hook_event_name": "SessionStart"}),
@@ -119,10 +64,55 @@ class TestSessionStartHook:
             timeout=20,
             env=env,
         )
-        assert proc.returncode == 0
+        assert proc.returncode == 0, proc.stderr
         data = json.loads(proc.stdout)
         assert data["hookSpecificOutput"]["hookEventName"] == "SessionStart"
-        assert data["hookSpecificOutput"]["additionalContext"]
-        # A static toolkit cache is seeded synchronously for UserPromptSubmit.
+        return data["hookSpecificOutput"]["additionalContext"]
+
+    def _fake_composio(self, tmp_path, signed_in: bool):
+        """Create a throwaway PATH containing a fake `composio` whose `whoami`
+        succeeds (signed in) or fails (not signed in)."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        script = bindir / "composio"
+        if signed_in:
+            script.write_text('#!/usr/bin/env bash\necho "user@example.com"\nexit 0\n')
+        else:
+            script.write_text('#!/usr/bin/env bash\nexit 1\n')
+        script.chmod(0o755)
+        # Keep the real toolchain (jq, bash, coreutils) available too.
+        return f"{bindir}:{os.environ.get('PATH', '')}"
+
+    def _assert_meta_search(self, ctx):
+        low = ctx.lower()
+        assert "composio search" in low, "must point at meta search (composio search)"
+        assert "composio execute" in low, "must mention composio execute"
+        assert "composio:composio-cli" in ctx, "must reference the skill"
+        assert "no api key" not in low, "must not say 'no API keys'"
+
+    def test_cli_present_signed_in(self, tmp_path):
+        path = self._fake_composio(tmp_path, signed_in=True)
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "You're signed in to Composio." in ctx
+
+    def test_cli_present_not_signed_in(self, tmp_path):
+        path = self._fake_composio(tmp_path, signed_in=False)
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "composio login" in ctx
+
+    def test_cli_absent(self, tmp_path):
+        # Minimal PATH with the standard toolchain but no `composio` on it.
+        bindir = tmp_path / "emptybin"
+        bindir.mkdir()
+        path = f"{bindir}:/usr/bin:/bin"
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "composio.dev/install" in ctx, "CLI-absent line must give install instructions"
+
+    def test_does_not_seed_toolkit_cache(self, tmp_path):
+        # The old toolkit-name cache must no longer be created.
+        self._run(tmp_path)
         cache = tmp_path / "composio-plugin-toolkits.cache"
-        assert cache.exists(), "session-start should seed the toolkit cache"
+        assert not cache.exists(), "session-start must not seed a toolkit cache anymore"

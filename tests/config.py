@@ -20,7 +20,7 @@ EXPECTED_COMMANDS = (
     "composio-connect",
     "composio-onboard",
 )
-EXPECTED_HOOK_EVENTS = ("UserPromptSubmit", "SessionStart")
+EXPECTED_HOOK_EVENTS = ("SessionStart",)
 
 # The STABLE composio CLI release whose composio-skill.zip is vendored (trimmed)
 # under skills/composio-cli. Keep in sync with scripts/refresh-skill.sh and

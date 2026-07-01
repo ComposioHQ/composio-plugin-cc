@@ -4,14 +4,14 @@
     "name": "Composio"
   },
   "metadata": {
-    "description": "Composio for Claude Code — let your agent act on 1000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with managed OAuth, no API keys.",
+    "description": "Your agent decides what to do; Composio handles the rest — just-in-time tool calls across 1,000+ apps with managed auth, via the composio CLI.",
     "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "composio",
       "displayName": "Composio",
-      "description": "Composio for Claude Code — let your agent act on 1000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with managed OAuth, no API keys. Prompt-aware: nudges Composio when you mention an app, and drives the composio CLI for search → connect → execute.",
+      "description": "Your agent decides what to do — Composio handles the rest. Just-in-time tool calls across 1,000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with fully managed auth, driven by the composio CLI.",
       "version": "0.2.0",
       "author": {
         "name": "Composio",
