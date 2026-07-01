@@ -7,22 +7,17 @@ argument-hint: <app> (e.g. slack, github, gmail, notion, linear)
 
 Connect the app the user named: **$ARGUMENTS**
 
+Assume the `composio` CLI is installed and authenticated (SessionStart surfaces its status). If a step reports you are not signed in, run `composio login` and retry.
+
 Steps:
 
-1. Make sure the CLI is available and the user is signed in:
-   ```bash
-   composio whoami
-   ```
-   - If the CLI is missing: `curl -fsSL https://composio.dev/install | bash`
-   - If not signed in: `composio login`
-
-2. Start the managed OAuth flow for the toolkit:
+1. Start the managed OAuth flow for the toolkit:
    ```bash
    composio link $ARGUMENTS
    ```
    If you are in a non-interactive context, use `composio link $ARGUMENTS --no-browser` and hand the returned URL to the user, then wait for them to confirm completion.
 
-3. Verify the connection with a lightweight read, for example:
+2. Verify the connection with a lightweight read, for example:
    - GitHub: `composio execute GITHUB_GET_THE_AUTHENTICATED_USER -d '{}'`
    - Slack: `composio execute SLACK_LIST_CHANNELS -d '{}'`
    - Gmail: `composio execute GMAIL_FETCH_EMAILS -d '{ max_results: 1 }'`

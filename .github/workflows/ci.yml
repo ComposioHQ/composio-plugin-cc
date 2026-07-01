@@ -38,20 +38,23 @@ jobs:
           fi
 
   refresh-skill:
-    # Verifies the pinned composio-skill.zip is still downloadable and that the
-    # vendored skill matches the pinned release. Does not commit; it only guards
-    # against drift. Update via scripts/refresh-skill.sh.
-    name: Verify pinned skill asset
+    # Single-sources the vendored composio-cli skill from the pinned STABLE
+    # release: re-runs the build step and fails if the committed skill drifts
+    # from what the release produces (so the skill is never hand-edited).
+    name: Verify vendored skill matches pinned release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check pinned release asset exists
+      - name: Regenerate skill from pinned STABLE release and check for drift
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Keep in sync with scripts/refresh-skill.sh and tests/config.py.
-          TAG='@composio/cli@0.2.31'
-          gh release view "$TAG" -R ComposioHQ/composio \
-            --json assets --jq '.assets[].name' | grep -q '^composio-skill.zip$' \
-            && echo "composio-skill.zip present on $TAG" \
-            || (echo "composio-skill.zip missing on $TAG" && exit 1)
+          # Uses the pinned STABLE tag baked into scripts/refresh-skill.sh
+          # (keep in sync with tests/config.py PINNED_SKILL_RELEASE).
+          ./scripts/refresh-skill.sh
+          if ! git diff --exit-code -- plugins/composio/skills/composio-cli; then
+            echo "Vendored composio-cli skill is out of date." >&2
+            echo "Run ./scripts/refresh-skill.sh and commit the result." >&2
+            exit 1
+          fi
+          echo "Vendored skill matches the pinned STABLE release."

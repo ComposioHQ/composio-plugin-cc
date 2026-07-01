@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # SessionStart hook for the Composio plugin.
 #
-# Emits ONE concise availability + auth-status line as injected context.
-# Tolerates the CLI being missing or not-logged-in. Always exits 0.
+# 1. Emits ONE concise availability + auth-status line as injected context.
+# 2. Refreshes a cached list of Composio toolkit names/slugs (background,
+#    bounded, non-blocking) so UserPromptSubmit can match app mentions against
+#    the live catalog instead of a hardcoded array.
+#
+# Tolerates the CLI being missing, offline, or not-logged-in. Always exits 0.
 
 set -u
 cat >/dev/null 2>&1 || true   # drain stdin payload; we don't need it
 
+cache="${TMPDIR:-/tmp}/composio-plugin-toolkits.cache"
 tmp="${TMPDIR:-/tmp}/composio-whoami.$$"
 
+# --- 1. availability + auth-status line ------------------------------------
 if ! command -v composio >/dev/null 2>&1; then
   line="Composio plugin loaded, but the 'composio' CLI is not installed. Install: 'curl -fsSL https://composio.dev/install | bash', then 'composio login'. Composio connects 1000+ apps (Slack, GitHub, Gmail, Notion, Linear, ...) with managed auth."
 else
@@ -28,6 +34,39 @@ else
   fi
 fi
 
+# --- 2. toolkit-name cache -------------------------------------------------
+# Seed a small static fallback synchronously so UserPromptSubmit always has
+# something to match, even before the (async) live refresh lands.
+if [ ! -s "$cache" ]; then
+  printf '%s\n' slack github gitlab bitbucket gmail outlook notion linear jira \
+    asana trello clickup hubspot salesforce zendesk intercom discord telegram \
+    whatsapp stripe shopify airtable dropbox box figma confluence calendly \
+    pagerduty datadog sentry vercel supabase quickbooks reddit youtube zoom \
+    googlecalendar googledrive googlesheets googledocs composio \
+    >"$cache" 2>/dev/null || true
+fi
+
+# Live refresh: source the real toolkit catalog from the CLI and atomically
+# replace the cache. Fully detached + bounded so it never blocks or hangs the
+# session. Tolerates not-installed / offline (leaves the static fallback).
+if command -v composio >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  (
+    ( composio dev toolkits list --limit 1000 >"$cache.raw.$$" 2>/dev/null ) & cpid=$!
+    ( sleep 10; kill -TERM "$cpid" 2>/dev/null ) & cwatch=$!
+    if wait "$cpid" 2>/dev/null && [ -s "$cache.raw.$$" ]; then
+      # Extract slugs + names, normalize (lowercase, non-alphanumerics -> spaces).
+      jq -r '.[] | (.slug, .name) // empty' "$cache.raw.$$" 2>/dev/null \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed -E 's/[^a-z0-9]+/ /g; s/^ +//; s/ +$//' \
+        | awk 'NF' | sort -u >"$cache.new.$$" 2>/dev/null
+      [ -s "$cache.new.$$" ] && mv -f "$cache.new.$$" "$cache" 2>/dev/null
+    fi
+    kill -TERM "$cwatch" 2>/dev/null
+    rm -f "$cache.raw.$$" "$cache.new.$$" 2>/dev/null
+  ) </dev/null >/dev/null 2>&1 &
+fi
+
+# --- emit injected context -------------------------------------------------
 if command -v jq >/dev/null 2>&1; then
   jq -n --arg c "$line" \
     '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$c}}'

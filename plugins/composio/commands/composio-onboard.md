@@ -6,13 +6,14 @@ description: Interactive Composio onboarding — install, sign in, and connect y
 
 Guide a new user through setup. Use AskUserQuestion at each decision point; keep it conversational.
 
-## Step 1: Install + auth
+## Step 1: Auth
+
+Assume the `composio` CLI is installed (SessionStart surfaces its status). Confirm sign-in:
 
 ```bash
 composio whoami
 ```
 
-- **CLI missing** → have the user run `curl -fsSL https://composio.dev/install | bash`, then continue.
 - **Not signed in** → run `composio login` and wait for completion.
 - **Signed in** → continue.
 

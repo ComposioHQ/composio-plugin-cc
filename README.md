@@ -46,20 +46,18 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 
 | Component | Purpose |
 |---|---|
-| `skills/composio-cli` | The **real, generated** Composio CLI skill (vendored from a pinned CLI release): the full `search → execute → link` workflow, flags, `run`/`proxy`/`listen`, plus references and troubleshooting. |
-| `skills/company-activity-summary` | Generates a cross-app activity summary (Slack, GitHub, Notion, Linear, Gmail, ...) for a time period. |
-| `hooks/user-prompt-submit.sh` | **UserPromptSubmit** hook: fast, local keyword match for app/toolkit/integration mentions. On a match it injects a reminder that Composio can do it plus the workflow. No network on the non-matching hot path; never blocks. |
-| `hooks/session-start.sh` | **SessionStart** hook: one concise availability + auth-status line (tolerates CLI-not-installed / not-signed-in). |
+| `skills/composio-cli` | The **real, generated** Composio CLI skill (vendored trimmed from a pinned STABLE CLI release): the full `search → execute → link` workflow, flags, `run`/`proxy`/`listen`, plus `references/composio-dev.md` and `references/troubleshooting.md`. |
+| `hooks/session-start.sh` | **SessionStart** hook: one concise availability + auth-status line (tolerates CLI-not-installed / not-signed-in), and refreshes a cached toolkit-name list from the CLI (`composio dev toolkits list`) in the background for the prompt hook to match against. |
+| `hooks/user-prompt-submit.sh` | **UserPromptSubmit** hook: fast, local match of app/toolkit mentions against the CLI-sourced cache. On a match it injects a minimal pointer to the `composio:composio-cli` skill and `composio search`. No network; never blocks. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
-| `commands/composio-status.md` | `/composio-status` — show CLI auth status and connected accounts. |
-| `commands/composio-run.md` | `/composio-run <slug or task>` — run a known tool, or discover one from a description. |
 | `commands/composio-onboard.md` | `/composio-onboard` — interactive first-time setup. |
 
 ## How the skill stays current
 
 The `composio-cli` skill is generated in [`ComposioHQ/composio`](https://github.com/ComposioHQ/composio)
-and published as the `composio-skill.zip` asset on `@composio/cli@*` releases. It is vendored here from a
-**pinned** release (currently `@composio/cli@0.2.31`). To refresh:
+and published as the `composio-skill.zip` asset on `@composio/cli@*` releases. It is vendored here (trimmed
+to `SKILL.md` + the two references) from a **pinned STABLE** release (currently `@composio/cli@0.2.31`). CI
+regenerates it and fails on drift, so the skill is single-sourced from the CLI, never hand-edited. To refresh:
 
 ```bash
 ./scripts/refresh-skill.sh                       # pinned tag
@@ -92,5 +90,4 @@ users get updates automatically (if auto-update is on) or via:
 
 This repo is structured to be submittable to the official Claude Code plugin marketplace: it is a
 public repo with a valid `.claude-plugin/marketplace.json`, a valid `plugins/composio/.claude-plugin/plugin.json`,
-semantic versioning, and CI that runs `claude plugin validate`. See [`SUBMISSION.md`](SUBMISSION.md) for
-the submission checklist. Submission itself is a manual external step.
+semantic versioning, and CI that runs `claude plugin validate`. Submission itself is a manual external step.

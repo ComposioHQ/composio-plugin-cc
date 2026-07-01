@@ -4,5 +4,5 @@ dist/
 *.log
 .playwright-mcp/
 
-# local ephemeral worktrees
-.claude/worktrees/
+# local agent scratch (plans, worktrees) — never committed
+.claude/

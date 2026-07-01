@@ -39,35 +39,90 @@ class TestHooksManifest:
 
 
 class TestHookBehavior:
-    """Run the UserPromptSubmit hook to confirm match / no-match behavior."""
+    """Run the UserPromptSubmit hook to confirm match / no-match behavior.
+
+    The hook matches app mentions against a CLI-sourced cache that SessionStart
+    maintains at ${TMPDIR}/composio-plugin-toolkits.cache. Each test controls
+    that cache by pointing TMPDIR at an isolated tmp dir.
+    """
 
     SCRIPT = HOOKS_ROOT / "user-prompt-submit.sh"
 
-    def _run(self, prompt: str):
+    def _run(self, prompt: str, tmpdir, cache_entries=None):
+        env = dict(os.environ, TMPDIR=str(tmpdir))
+        cache = os.path.join(str(tmpdir), "composio-plugin-toolkits.cache")
+        if cache_entries is not None:
+            with open(cache, "w") as fh:
+                fh.write("\n".join(cache_entries) + "\n")
         payload = json.dumps({"hook_event_name": "UserPromptSubmit", "prompt": prompt})
-        proc = subprocess.run(
+        return subprocess.run(
             ["bash", str(self.SCRIPT)],
             input=payload,
             capture_output=True,
             text=True,
             timeout=15,
+            env=env,
         )
-        return proc
 
-    def test_injects_on_toolkit_mention(self):
-        proc = self._run("Please open a GitHub issue for this bug")
+    def test_injects_on_toolkit_mention_from_cache(self, tmp_path):
+        proc = self._run(
+            "Please open a GitHub issue for this bug",
+            tmp_path,
+            cache_entries=["github", "slack", "gmail"],
+        )
         assert proc.returncode == 0
         assert proc.stdout.strip(), "expected additionalContext on a toolkit mention"
         data = json.loads(proc.stdout)
         ctx = data["hookSpecificOutput"]["additionalContext"]
         assert data["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
         assert "composio" in ctx.lower()
+        assert "composio:composio-cli" in ctx
 
-    def test_no_injection_on_unrelated_prompt(self):
-        proc = self._run("Refactor this quicksort to be iterative")
+    def test_no_injection_on_unrelated_prompt(self, tmp_path):
+        proc = self._run(
+            "Refactor this quicksort to be iterative",
+            tmp_path,
+            cache_entries=["github", "slack", "gmail"],
+        )
         assert proc.returncode == 0
         assert proc.stdout.strip() == "", "must not inject on unrelated prompts"
 
-    def test_empty_prompt_is_safe(self):
-        proc = self._run("")
+    def test_fallback_intent_match_when_cache_absent(self, tmp_path):
+        # No cache written: hook falls back to the minimal generic intent set.
+        proc = self._run("Help me connect my account", tmp_path)
         assert proc.returncode == 0
+        assert proc.stdout.strip(), "expected fallback intent match without a cache"
+
+    def test_no_fallback_match_for_app_name_without_cache(self, tmp_path):
+        # Without a cache, a bare app name must NOT match (only generic intent does).
+        proc = self._run("Summarize my github activity", tmp_path)
+        assert proc.returncode == 0
+        assert proc.stdout.strip() == "", "app names require the CLI-sourced cache"
+
+    def test_empty_prompt_is_safe(self, tmp_path):
+        proc = self._run("", tmp_path, cache_entries=["github"])
+        assert proc.returncode == 0
+
+
+class TestSessionStartHook:
+    """SessionStart must always emit valid JSON and exit 0, CLI present or not."""
+
+    SCRIPT = HOOKS_ROOT / "session-start.sh"
+
+    def test_emits_valid_json(self, tmp_path):
+        env = dict(os.environ, TMPDIR=str(tmp_path))
+        proc = subprocess.run(
+            ["bash", str(self.SCRIPT)],
+            input=json.dumps({"hook_event_name": "SessionStart"}),
+            capture_output=True,
+            text=True,
+            timeout=20,
+            env=env,
+        )
+        assert proc.returncode == 0
+        data = json.loads(proc.stdout)
+        assert data["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+        assert data["hookSpecificOutput"]["additionalContext"]
+        # A static toolkit cache is seeded synchronously for UserPromptSubmit.
+        cache = tmp_path / "composio-plugin-toolkits.cache"
+        assert cache.exists(), "session-start should seed the toolkit cache"

@@ -2,7 +2,7 @@
   "name": "composio",
   "displayName": "Composio",
   "version": "0.2.0",
-  "description": "Connect and act on 1000+ apps (Slack, GitHub, Gmail, Notion, Linear, and more) from Claude Code via the Composio CLI. Ships the generated composio-cli skill, prompt-aware hooks, and slash commands. Composio handles OAuth, permissions, and tool routing.",
+  "description": "Composio for Claude Code — let your agent act on 1000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with managed OAuth, no API keys. Prompt-aware: nudges Composio when you mention an app, and drives the composio CLI for search → connect → execute.",
   "author": {
     "name": "Composio",
     "url": "https://composio.dev"
