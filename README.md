@@ -1,29 +1,48 @@
 # Composio for Claude Code
 
-Your agent decides what to do — Composio handles the rest. Make just-in-time tool calls across
-**[1,000+ apps](https://composio.dev/toolkits)** — Slack, GitHub, Gmail, Notion, Linear, Google
-Calendar, Jira, HubSpot, and more — directly from Claude Code, powered by the
-[Composio CLI](https://composio.dev). Composio manages auth, permissions, and intelligent tool
-routing, so the agent can discover, connect, and run tools without you hand-rolling API calls.
+[![CI](https://github.com/ComposioHQ/composio-plugin-cc/actions/workflows/ci.yml/badge.svg)](https://github.com/ComposioHQ/composio-plugin-cc/actions/workflows/ci.yml)
+&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-Composio's model is **meta search**: instead of pre-loading a fixed toolset, the agent resolves the
-right tool just-in-time for the task at hand — `composio search "<task>"` → `composio execute`.
+Composio lets you connect and act on **[1,000+ apps](https://composio.dev/toolkits)** like Google
+Workspace, Slack, GitHub, Notion, Linear, Jira, HubSpot, and more — directly from Claude Code,
+through the [Composio CLI](https://composio.dev).
 
-This is a **single, CLI-based** plugin: all logic lives in the `composio` binary, and the plugin is a
-thin layer — SessionStart + UserPromptSubmit meta-search hooks and the `/composio-connect` command — over it. The CLI
-itself ships and auto-installs the `composio-cli` skill on `composio login`, so the plugin doesn't
-bundle one. Updating the CLI (`composio upgrade`) updates the capabilities.
+Composio handles OAuth, permissions, and intelligent tool routing. Its **meta-search** model
+resolves the right tool just-in-time (`composio search "<task>"` → `composio execute`) instead of
+pre-loading a fixed toolset — so the agent stays fast and picks the right tool the first time.
+
+## What you can do
+
+- **Act on any connected app** — "send a Slack message to #eng", "list my open GitHub PRs",
+  "add a lunch event to my calendar tomorrow". The agent finds the tool and runs it.
+- **Run cross-app workflows** — turn the latest GitHub PR into a Linear issue and announce it in
+  Slack; draft a Notion doc from a calendar event.
+- **Connect apps on demand** — fully managed OAuth; the agent hands you an auth link and waits for
+  it to complete.
+- **Script multi-step work** — `composio run '<js>'` fans out several calls (parallel reads, then a
+  write) in one pass.
+
+## What's included
+
+A **thin, CLI-based** plugin: all logic lives in the `composio` binary. No MCP server, no bundled skill.
+
+| Component | Purpose |
+|---|---|
+| `hooks/session-start.sh` | Injects a meta-search + auth-status note at session start (and on resume/clear/compact); warms a top-50 toolkit cache. |
+| `hooks/user-prompt-submit.sh` | When a prompt names a toolkit from the top-50 cache, nudges the agent toward `composio search`. Pure-bash, no network on the hot path. |
+| `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
 
 ## Install
 
-### Via this marketplace (self-hosted)
+### Via this marketplace
 
 ```
 /plugin marketplace add ComposioHQ/composio-plugin-cc
 /plugin install composio@composio
 ```
 
-Then make sure the CLI is present and you are signed in:
+Then make sure the CLI is present and you're signed in (the CLI also installs the full
+`composio-cli` skill on login):
 
 ```bash
 curl -fsSL https://composio.dev/install | bash   # if not already installed
@@ -32,7 +51,7 @@ composio login
 
 ### Team setup
 
-Add this to `.claude/settings.json` in a project to auto-prompt teammates:
+Add this to `.claude/settings.json` in a project to auto-enable it for teammates:
 
 ```json
 {
@@ -47,37 +66,51 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 }
 ```
 
-## What it ships
+## How it works
 
-| Component | Purpose |
-|---|---|
-| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Re-injects on startup, resume, clear, and compact. Also **warms a top-50 toolkit cache** (popularity-ranked, sourced from `composio dev toolkits list`) for the per-prompt hook. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
-| `hooks/user-prompt-submit.sh` | **UserPromptSubmit** hook: per-prompt nudge. Matches the prompt against the top-50 toolkits (from the SessionStart-warmed cache, with a small static fallback) plus a stable set of action-intent verbs; on a match, injects a one-line `composio search` pointer. Pure-bash, **no network on the hot path** — silent on no match, always exits 0. |
-| `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
+The plugin keeps the agent reaching for Composio, then gets out of the way — the `composio` CLI does
+the work. The agent:
 
-The `composio-cli` skill (full `search → execute → link` usage) is **not** bundled: the CLI ships it and
-auto-installs it on `composio login`, so a copy here would just duplicate the CLI-installed one.
+1. **Learns Composio is available** — SessionStart injects a meta-search note + your auth status and
+   warms the top-50 toolkit cache.
+2. **Gets nudged when it matters** — UserPromptSubmit fires only when a prompt names a known app.
+3. **Searches and executes** — `composio search "<task>"` → `composio execute` (managed auth),
+   `composio link <app>` to connect anything not yet connected.
+4. **Stays current for free** — all logic is in the CLI; `composio upgrade` updates capabilities, no
+   plugin change needed.
 
-## Development
+See the CLI-installed `composio-cli` skill (`composio --install-skill claude`) for the full reference.
 
-```bash
-make test          # static validation + `claude plugin validate`
-make test-unit     # pytest only
-make validate      # claude plugin validate only
+## Examples
+
+Naming the app explicitly keeps tool search scoped and the run reliable.
+
+**Single app:**
+
+```text
+What's on my Google Calendar for tomorrow? Add an event for lunch at 12PM.
 ```
 
-## Updating the plugin
+**Connect on demand:**
 
-Bump `version` only in `plugins/composio/.claude-plugin/plugin.json` (the single source of truth for
-the plugin version), push, and users get updates automatically (if auto-update is on) or via:
-
-```
-/plugin marketplace update composio
-/reload-plugins
+```text
+/composio-connect linear
 ```
 
-## Official Anthropic marketplace
+**Cross-app workflow** (reads feed the write):
 
-This repo is structured to be submittable to the official Claude Code plugin marketplace: it is a
-public repo with a valid `.claude-plugin/marketplace.json`, a valid `plugins/composio/.claude-plugin/plugin.json`,
-semantic versioning, and CI that runs `claude plugin validate`. Submission itself is a manual external step.
+```text
+Take the latest merged PR in acme/app, open a Linear issue summarizing it,
+and post the issue link to #eng in Slack.
+```
+
+**Parallel reads, then summarize:**
+
+```text
+In parallel, fetch my last 10 Gmail emails, my open Linear issues, and today's
+Google Calendar events. Redact personal info, then give me a concise summary.
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
