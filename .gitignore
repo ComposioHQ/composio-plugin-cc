@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .playwright-mcp/
+
+# local agent scratch (plans, worktrees) — never committed
+.claude/

@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    name: Validate plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps
+        run: pip install pytest pyyaml
+
+      - name: Static validation (frontmatter, manifest, hooks, commands)
+        run: python3 -m pytest tests/unit -q
+
+      # `claude plugin validate` checks plugin.json, marketplace.json, and
+      # command/hook frontmatter against the official schema.
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+        continue-on-error: true
+
+      - name: claude plugin validate (plugin)
+        run: |
+          if command -v claude >/dev/null 2>&1; then
+            claude plugin validate ./.claude-plugin/marketplace.json
+            claude plugin validate ./plugins/composio
+          else
+            echo "claude CLI unavailable; skipping (static tests already ran)."
+          fi

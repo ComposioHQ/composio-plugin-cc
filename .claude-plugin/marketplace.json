@@ -4,27 +4,31 @@
     "name": "Composio"
   },
   "metadata": {
-    "description": "Composio plugins for Claude Code — connect 1000+ apps with managed auth, intelligent tool routing, and programmatic tool calling.",
-    "version": "0.1.0"
+    "description": "Your agent decides what to do; Composio handles the rest — just-in-time tool calls across 1,000+ apps with managed auth, via the composio CLI.",
+    "version": "0.2.0"
   },
   "plugins": [
     {
-      "name": "composio-mcp",
-      "description": "Composio MCP server — gives Claude access to 1000+ apps (GitHub, Slack, Notion, etc.) via MCP.",
-      "version": "0.1.0",
+      "name": "composio",
+      "displayName": "Composio",
+      "description": "Your agent decides what to do — Composio handles the rest. Just-in-time tool calls across 1,000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with fully managed auth, driven by the composio CLI.",
       "author": {
-        "name": "Composio"
+        "name": "Composio",
+        "url": "https://composio.dev"
       },
-      "source": "./plugins/composio-mcp"
-    },
-    {
-      "name": "composio-cli",
-      "description": "Composio CLI skills — find tools, connect accounts, execute actions, and manage connectors from Claude Code.",
-      "version": "0.1.0",
-      "author": {
-        "name": "Composio"
-      },
-      "source": "./plugins/composio-cli"
+      "homepage": "https://composio.dev",
+      "repository": "https://github.com/ComposioHQ/composio-plugin-cc",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "composio",
+        "cli",
+        "tools",
+        "integrations",
+        "connectors",
+        "automation"
+      ],
+      "source": "./plugins/composio"
     }
   ]
 }
