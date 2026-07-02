@@ -89,7 +89,7 @@ class TestSessionStartHook:
         low = ctx.lower()
         assert "composio search" in low, "must point at meta search (composio search)"
         assert "composio execute" in low, "must mention composio execute"
-        assert "composio:composio-cli" in ctx, "must reference the skill"
+        assert "composio login" in low, "must reference the CLI (composio login installs the skill)"
         assert "no api key" not in low, "must not say 'no API keys'"
 
     def test_cli_present_signed_in(self, tmp_path):

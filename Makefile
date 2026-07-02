@@ -1,11 +1,11 @@
-.PHONY: help test test-unit validate refresh-skill
+.PHONY: help test test-unit validate
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
 
 test: test-unit validate ## Run all checks
 
-test-unit: ## Static validation (frontmatter, manifest, hooks, commands, skill discovery)
+test-unit: ## Static validation (frontmatter, manifest, hooks, commands)
 	python3 -m pytest tests/unit -q
 
 validate: ## Run `claude plugin validate` on the marketplace + plugin (if claude is installed)
@@ -15,6 +15,3 @@ validate: ## Run `claude plugin validate` on the marketplace + plugin (if claude
 	else \
 		echo "claude CLI not found; skipping validate"; \
 	fi
-
-refresh-skill: ## Re-vendor the composio-cli skill from the pinned Composio CLI release
-	./scripts/refresh-skill.sh

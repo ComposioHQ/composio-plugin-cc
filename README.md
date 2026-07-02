@@ -10,8 +10,9 @@ Composio's model is **meta search**: instead of pre-loading a fixed toolset, the
 right tool just-in-time for the task at hand — `composio search "<task>"` → `composio execute`.
 
 This is a **single, CLI-based** plugin: all logic lives in the `composio` binary, and the plugin is a
-thin layer of hooks, slash commands, and the generated skill over it. Updating the CLI (`composio
-upgrade`) updates the capabilities.
+thin layer — a SessionStart meta-search hook and the `/composio-connect` command — over it. The CLI
+itself ships and auto-installs the `composio-cli` skill on `composio login`, so the plugin doesn't
+bundle one. Updating the CLI (`composio upgrade`) updates the capabilities.
 
 ## Install
 
@@ -50,24 +51,11 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 
 | Component | Purpose |
 |---|---|
-| `skills/composio-cli` | The **real, generated** Composio CLI skill (vendored trimmed from a pinned STABLE CLI release): the full `search → execute → link` workflow, flags, `run`/`proxy`/`listen`, plus `references/composio-dev.md` and `references/troubleshooting.md`. |
-| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
+| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Re-injects on startup, resume, clear, and compact. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
 
-## How the skill stays current
-
-The `composio-cli` skill is generated in [`ComposioHQ/composio`](https://github.com/ComposioHQ/composio)
-and published as the `composio-skill.zip` asset on `@composio/cli@*` releases. It is vendored here (trimmed
-to `SKILL.md` + the two references) from a **pinned STABLE** release (currently `@composio/cli@0.2.31`). CI
-regenerates it and fails on drift, so the skill is single-sourced from the CLI, never hand-edited. To refresh:
-
-```bash
-./scripts/refresh-skill.sh                       # pinned tag
-./scripts/refresh-skill.sh '@composio/cli@X.Y.Z' # a specific tag
-```
-
-Update `PINNED_SKILL_RELEASE` in `tests/config.py` (and the tag in `.github/workflows/ci.yml` and
-`scripts/refresh-skill.sh`) when you bump it.
+The `composio-cli` skill (full `search → execute → link` usage) is **not** bundled: the CLI ships it and
+auto-installs it on `composio login`, so a copy here would just duplicate the CLI-installed one.
 
 ## Development
 
@@ -75,7 +63,6 @@ Update `PINNED_SKILL_RELEASE` in `tests/config.py` (and the tag in `.github/work
 make test          # static validation + `claude plugin validate`
 make test-unit     # pytest only
 make validate      # claude plugin validate only
-make refresh-skill # re-vendor the CLI skill
 ```
 
 ## Updating the plugin

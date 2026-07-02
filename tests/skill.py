@@ -1,4 +1,4 @@
-"""Discover and parse plugin skill / command files with YAML frontmatter."""
+"""Discover and parse plugin command files with YAML frontmatter."""
 from __future__ import annotations
 
 import dataclasses
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from tests.config import COMMANDS_ROOT, SKILLS_ROOT
+from tests.config import COMMANDS_ROOT
 
 
 @dataclasses.dataclass
@@ -43,23 +43,6 @@ class Doc:
             path=path,
             content=content,
         )
-
-
-# Skills use `metadata.name` == directory name convention, so no fallback.
-Skill = Doc
-
-
-def discover_skills() -> tuple[Doc, ...]:
-    skills = []
-    if not SKILLS_ROOT.is_dir():
-        return ()
-    for skill_dir in sorted(SKILLS_ROOT.iterdir()):
-        if not skill_dir.is_dir():
-            continue
-        skill_file = skill_dir / "SKILL.md"
-        if skill_file.exists():
-            skills.append(Doc.from_path(skill_file))
-    return tuple(skills)
 
 
 def discover_commands() -> tuple[Doc, ...]:

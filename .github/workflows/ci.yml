@@ -19,11 +19,11 @@ jobs:
       - name: Install test deps
         run: pip install pytest pyyaml
 
-      - name: Static validation (frontmatter, manifest, hooks, commands, skill discovery)
+      - name: Static validation (frontmatter, manifest, hooks, commands)
         run: python3 -m pytest tests/unit -q
 
       # `claude plugin validate` checks plugin.json, marketplace.json, and
-      # skill/command/hook frontmatter against the official schema.
+      # command/hook frontmatter against the official schema.
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
         continue-on-error: true
@@ -36,25 +36,3 @@ jobs:
           else
             echo "claude CLI unavailable; skipping (static tests already ran)."
           fi
-
-  refresh-skill:
-    # Single-sources the vendored composio-cli skill from the pinned STABLE
-    # release: re-runs the build step and fails if the committed skill drifts
-    # from what the release produces (so the skill is never hand-edited).
-    name: Verify vendored skill matches pinned release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - name: Regenerate skill from pinned STABLE release and check for drift
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Uses the pinned STABLE tag baked into scripts/refresh-skill.sh
-          # (keep in sync with tests/config.py PINNED_SKILL_RELEASE).
-          ./scripts/refresh-skill.sh
-          if ! git diff --exit-code -- plugins/composio/skills/composio-cli; then
-            echo "Vendored composio-cli skill is out of date." >&2
-            echo "Run ./scripts/refresh-skill.sh and commit the result." >&2
-            exit 1
-          fi
-          echo "Vendored skill matches the pinned STABLE release."

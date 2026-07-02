@@ -30,9 +30,6 @@ class TestPluginManifest:
     def test_has_description(self):
         assert len(self.manifest.get("description", "")) > 20, "plugin.json needs a real description"
 
-    def test_skills_dir_is_discoverable(self):
-        assert (PLUGIN_ROOT / "skills").is_dir(), "skills/ directory must exist for auto-discovery"
-
     def test_hooks_and_commands_present(self):
         assert (PLUGIN_ROOT / "hooks" / "hooks.json").exists(), "hooks/hooks.json must exist"
         assert (PLUGIN_ROOT / "commands").is_dir(), "commands/ directory must exist"
