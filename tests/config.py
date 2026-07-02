@@ -15,4 +15,4 @@ MARKETPLACE_MANIFEST = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 PLUGIN_NAME = json.loads(PLUGIN_MANIFEST.read_text())["name"]
 
 EXPECTED_COMMANDS = ("composio-connect",)
-EXPECTED_HOOK_EVENTS = ("SessionStart",)
+EXPECTED_HOOK_EVENTS = ("SessionStart", "UserPromptSubmit")

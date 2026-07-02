@@ -10,7 +10,7 @@ Composio's model is **meta search**: instead of pre-loading a fixed toolset, the
 right tool just-in-time for the task at hand — `composio search "<task>"` → `composio execute`.
 
 This is a **single, CLI-based** plugin: all logic lives in the `composio` binary, and the plugin is a
-thin layer — a SessionStart meta-search hook and the `/composio-connect` command — over it. The CLI
+thin layer — SessionStart + UserPromptSubmit meta-search hooks and the `/composio-connect` command — over it. The CLI
 itself ships and auto-installs the `composio-cli` skill on `composio login`, so the plugin doesn't
 bundle one. Updating the CLI (`composio upgrade`) updates the capabilities.
 
@@ -51,7 +51,8 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 
 | Component | Purpose |
 |---|---|
-| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Re-injects on startup, resume, clear, and compact. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
+| `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Re-injects on startup, resume, clear, and compact. Also **warms a top-50 toolkit cache** (popularity-ranked, sourced from `composio dev toolkits list`) for the per-prompt hook. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
+| `hooks/user-prompt-submit.sh` | **UserPromptSubmit** hook: per-prompt nudge. Matches the prompt against the top-50 toolkits (from the SessionStart-warmed cache, with a small static fallback) plus a stable set of action-intent verbs; on a match, injects a one-line `composio search` pointer. Pure-bash, **no network on the hot path** — silent on no match, always exits 0. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
 
 The `composio-cli` skill (full `search → execute → link` usage) is **not** bundled: the CLI ships it and
