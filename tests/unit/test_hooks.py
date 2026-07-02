@@ -180,7 +180,8 @@ class TestSessionStartHook:
 
 class TestUserPromptSubmitHook:
     """UserPromptSubmit nudges (single-line, via additionalContext) when a prompt
-    mentions a toolkit or an action-intent verb; is silent otherwise; reads the
+    NAMES a known toolkit (or common alias); is silent otherwise — including on
+    bare action verbs, which over-fire on normal coding prompts; reads the
     SessionStart-warmed cache; never touches the network; always exits 0."""
 
     SCRIPT = HOOKS_ROOT / "user-prompt-submit.sh"
@@ -215,9 +216,21 @@ class TestUserPromptSubmitHook:
         out = self._run(tmp_path, "open a github issue")
         self._ctx(out)
 
-    def test_action_verb_matches(self, tmp_path):
-        out = self._run(tmp_path, "connect my account")
+    def test_alias_matches(self, tmp_path):
+        # A common app nickname not captured by a slug should still fire.
+        out = self._run(tmp_path, "post a tweet about the launch")
         self._ctx(out)
+
+    def test_bare_action_verb_is_silent(self, tmp_path):
+        # Generic verbs must NOT fire (they collide with coding vocab and over-inject).
+        for prompt in (
+            "connect to the local postgres database",
+            "the issue is on line 42",
+            "post the results to the console",
+            "write an email validation regex",
+        ):
+            out = self._run(tmp_path, prompt)
+            assert out.strip() == "", f"bare verb must be silent, but fired on: {prompt!r}"
 
     def test_unrelated_prompt_is_silent(self, tmp_path):
         out = self._run(tmp_path, "refactor this python function")
