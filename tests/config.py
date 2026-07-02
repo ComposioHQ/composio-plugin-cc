@@ -16,10 +16,7 @@ MARKETPLACE_MANIFEST = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 PLUGIN_NAME = json.loads(PLUGIN_MANIFEST.read_text())["name"]
 
 EXPECTED_SKILLS = ("composio-cli",)
-EXPECTED_COMMANDS = (
-    "composio-connect",
-    "composio-onboard",
-)
+EXPECTED_COMMANDS = ("composio-connect",)
 EXPECTED_HOOK_EVENTS = ("SessionStart",)
 
 # The STABLE composio CLI release whose composio-skill.zip is vendored (trimmed)

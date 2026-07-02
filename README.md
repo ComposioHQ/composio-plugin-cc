@@ -53,7 +53,6 @@ Add this to `.claude/settings.json` in a project to auto-prompt teammates:
 | `skills/composio-cli` | The **real, generated** Composio CLI skill (vendored trimmed from a pinned STABLE CLI release): the full `search → execute → link` workflow, flags, `run`/`proxy`/`listen`, plus `references/composio-dev.md` and `references/troubleshooting.md`. |
 | `hooks/session-start.sh` | **SessionStart** hook: one concise standing note pointing the agent at Composio's meta-search model (`composio search "<task>"` → `composio execute`) plus an auth-status line. Fast, bounded, non-blocking; tolerates CLI-not-installed / offline / not-signed-in. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
-| `commands/composio-onboard.md` | `/composio-onboard` — interactive first-time setup. |
 
 ## How the skill stays current
 
