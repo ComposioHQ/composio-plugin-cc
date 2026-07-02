@@ -12,18 +12,16 @@
   "license": "MIT",
   "keywords": [
     "composio",
-    "mcp",
+    "cli",
     "tools",
     "integrations",
+    "connectors",
     "oauth",
-    "agent",
-    "toolkit",
-    "automation",
-    "api",
     "slack",
     "github",
     "gmail",
     "notion",
-    "linear"
+    "linear",
+    "automation"
   ]
 }

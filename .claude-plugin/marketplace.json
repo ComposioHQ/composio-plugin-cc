@@ -22,19 +22,11 @@
       "category": "productivity",
       "keywords": [
         "composio",
-        "mcp",
+        "cli",
         "tools",
         "integrations",
-        "oauth",
-        "agent",
-        "toolkit",
-        "automation",
-        "api",
-        "slack",
-        "github",
-        "gmail",
-        "notion",
-        "linear"
+        "connectors",
+        "automation"
       ],
       "source": "./plugins/composio"
     }

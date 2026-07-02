@@ -29,7 +29,7 @@ A **thin, CLI-based** plugin: all logic lives in the `composio` binary. No MCP s
 | Component | Purpose |
 |---|---|
 | `hooks/session-start.sh` | Injects a meta-search + auth-status note at session start (and on resume/clear/compact); warms a top-50 toolkit cache. |
-| `hooks/user-prompt-submit.sh` | When a prompt names a known toolkit, nudges the agent toward `composio search`. Pure-bash, no network on the hot path. |
+| `hooks/user-prompt-submit.sh` | When a prompt names a toolkit from the top-50 cache, nudges the agent toward `composio search`. Pure-bash, no network on the hot path. |
 | `commands/composio-connect.md` | `/composio-connect <app>` — connect a toolkit via managed OAuth. |
 
 ## Install

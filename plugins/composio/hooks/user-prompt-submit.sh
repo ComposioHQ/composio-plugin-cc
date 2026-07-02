@@ -1,22 +1,23 @@
 #!/usr/bin/env bash
 # UserPromptSubmit hook for the Composio plugin.
 #
-# When a prompt NAMES a known external app/toolkit, inject a single-line nudge
-# pointing at Composio's meta-search (search -> execute). No match -> no output.
+# When a prompt NAMES a known toolkit, inject a single-line nudge pointing at
+# Composio's meta-search (search -> execute). No match -> no output.
 #
-# Matches ONLY named toolkits (high precision) — NOT generic action verbs, which
-# collide with everyday coding vocabulary (issue/post/sync/connect/email/...) and
-# over-fire on ~60% of normal prompts. The general "use Composio for external
-# stuff" reminder lives in the SessionStart hook; this per-prompt hook fires only
-# on an explicit app mention.
+# The match set is the top-50 toolkits, READ from the cache the SessionStart hook
+# warms (via `composio dev toolkits list --limit 50`) — nothing else. No generic
+# verbs (they collide with coding vocabulary and over-fire), no static fallback,
+# no aliases. If the cache is cold (CLI absent/offline, or the session just
+# started) there is no match and the hook is silent.
 #
-# Pure bash, no network, no composio call on this hot path. The toolkit match set
-# is READ from a cache warmed by the SessionStart hook (plus a small static
-# fallback for when the cache is cold/offline). Always exits 0.
+# Pure bash, no network, no composio call on this hot path. Always exits 0.
 
 set -u
 
 CACHE="${TMPDIR:-/tmp}/composio-plugin-toolkits.cache"
+
+# No cache -> nothing to match against -> stay silent.
+[ -f "$CACHE" ] && [ -s "$CACHE" ] || exit 0
 
 payload="$(cat)"
 
@@ -35,39 +36,16 @@ norm="$(printf '%s' "$prompt" \
   | tr -c 'a-z0-9' ' ')"
 norm=" $norm "
 
+# --- match against the top-50 toolkit cache (each line = slug or display name,
+#     possibly multi-word), as a space-padded substring so "google calendar"
+#     matches too.
 matched=0
-
-# 1) Common app aliases/nicknames not always captured by a toolkit slug.
-#    Kept short and collision-safe (no bare single letters like "x").
-for kw in twitter tweet gcal gsheet gsheets gdrive; do
+while IFS= read -r kw; do
+  [ -n "$kw" ] || continue
   case "$norm" in
     *" $kw "*) matched=1; break ;;
   esac
-done
-
-# 2) Toolkit tokens — from the SessionStart cache when warm (each line is one
-#    token/phrase: slug or display name, possibly multi-word), else a small
-#    static fallback of popular slugs + phrases. Each entry is matched as a
-#    space-padded substring so multi-word names ("google calendar") work too.
-if [ "$matched" -eq 0 ]; then
-  if [ -f "$CACHE" ] && [ -s "$CACHE" ]; then
-    while IFS= read -r kw; do
-      [ -n "$kw" ] || continue
-      case "$norm" in
-        *" $kw "*) matched=1; break ;;
-      esac
-    done <"$CACHE"
-  else
-    for kw in gmail github slack notion linear googlecalendar "google calendar" \
-              googlesheets "google sheets" googledrive "google drive" jira \
-              hubspot salesforce discord telegram stripe airtable asana trello \
-              zoom calendly figma sentry twitter; do
-      case "$norm" in
-        *" $kw "*) matched=1; break ;;
-      esac
-    done
-  fi
-fi
+done <"$CACHE"
 
 [ "$matched" -eq 1 ] || exit 0
 
