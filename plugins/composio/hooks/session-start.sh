@@ -46,16 +46,39 @@ fi
 if ! command -v composio >/dev/null 2>&1; then
   auth="Install the CLI: curl -fsSL https://composio.dev/install | bash, then composio login."
 else
-  # Bounded whoami so a slow CLI can never stall session start. Sign-in is
-  # decided by the EXIT CODE alone (0 = signed in) — never by stdout contents,
-  # which vary across CLI versions and can be empty even when authenticated.
+  # Bounded whoami so a slow CLI can never stall session start. CLI 0.2.31 can
+  # exit 0 with no output when logged out, while newer versions emit an explicit
+  # authenticated boolean and return non-zero. Capture both streams so this
+  # works with old human-readable output and the newer JSON contract.
   signed_in=1
-  ( composio whoami >/dev/null 2>&1 ) & pid=$!
-  ( sleep 3; kill -TERM "$pid" 2>/dev/null ) & watcher=$!
-  if wait "$pid" 2>/dev/null; then
-    signed_in=0
+  whoami_output=""
+  whoami_file="$(mktemp "${TMPDIR:-/tmp}/composio-whoami.XXXXXX" 2>/dev/null)" || whoami_file=""
+  if [ -n "$whoami_file" ]; then
+    ( composio whoami >"$whoami_file" 2>&1 ) & pid=$!
+    ( sleep 3; kill -TERM "$pid" 2>/dev/null ) & watcher=$!
+    whoami_status=1
+    if wait "$pid" 2>/dev/null; then
+      whoami_status=0
+    fi
+    kill -TERM "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
+
+    # Bound memory use too. `whoami` output is tiny, but the hook should remain
+    # defensive if a wrapper or future CLI version gets unexpectedly noisy.
+    whoami_output="$(head -c 8192 "$whoami_file" 2>/dev/null)"
+    rm -f "$whoami_file" 2>/dev/null
+
+    if [ "$whoami_status" -eq 0 ] && [ -n "$(printf '%s' "$whoami_output" | tr -d '[:space:]')" ]; then
+      normalized="$(printf '%s' "$whoami_output" | tr '[:upper:]' '[:lower:]')"
+
+      # Explicit logged-out output always wins. Otherwise a successful,
+      # non-empty response is the backwards-compatible signal for older CLIs
+      # whose JSON did not yet include `authenticated: true`.
+      if ! printf '%s' "$normalized" | grep -Eq \
+        '"authenticated"[[:space:]]*:[[:space:]]*false|not[[:space:]-]+logged[[:space:]-]+in|not[[:space:]-]+signed[[:space:]-]+in|not[[:space:]-]+authenticated|unauthenticated|authentication[[:space:]]+(is[[:space:]]+)?required|please[[:space:]]+run.*composio[[:space:]]+login|api[ _-]?key.*(missing|not[[:space:]]+(set|found)|invalid)'; then
+        signed_in=0
+      fi
+    fi
   fi
-  kill -TERM "$watcher" 2>/dev/null; wait "$watcher" 2>/dev/null
   if [ "$signed_in" -eq 0 ]; then
     auth="You're signed in to Composio."
   else
