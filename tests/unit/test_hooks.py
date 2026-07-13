@@ -1,8 +1,11 @@
 """Validate the hooks manifest and the SessionStart hook script."""
 import json
 import os
+import shlex
 import stat
 import subprocess
+
+import pytest
 
 from tests.config import EXPECTED_HOOK_EVENTS, HOOKS_CONFIG, HOOKS_ROOT, PLUGIN_ROOT
 
@@ -29,6 +32,10 @@ class TestHooksManifest:
             f"hooks.json should define SessionStart + UserPromptSubmit, found {sorted(self.hooks)}"
         )
 
+    def test_session_start_is_bounded(self):
+        hook = self.hooks["SessionStart"][0]["hooks"][0]
+        assert hook["timeout"] == 8
+
     def test_commands_use_plugin_root_and_exist(self):
         for event, groups in self.hooks.items():
             for group in groups:
@@ -46,10 +53,6 @@ class TestHooksManifest:
 
 
 class TestSessionStartHook:
-    """SessionStart must always emit valid JSON with the meta-search guidance and
-    the correct auth line, exit 0 — CLI present, absent, signed-in, or not — and
-    warm the top-50 toolkit cache when the CLI is available."""
-
     SCRIPT = HOOKS_ROOT / "session-start.sh"
 
     def _run(self, tmp_path, path=None):
@@ -69,20 +72,24 @@ class TestSessionStartHook:
         assert data["hookSpecificOutput"]["hookEventName"] == "SessionStart"
         return data["hookSpecificOutput"]["additionalContext"]
 
-    def _fake_composio(self, tmp_path, exit_code: int, stdout: str = ""):
-        """Create a throwaway PATH containing a fake `composio` whose `whoami`
-        prints `stdout` and exits with `exit_code`. Sign-in must be decided by
-        the exit code alone, independent of stdout."""
+    def _fake_composio(
+        self,
+        tmp_path,
+        exit_code: int,
+        stdout: str = "",
+        stderr: str = "",
+    ):
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         script = bindir / "composio"
         body = "#!/usr/bin/env bash\n"
         if stdout:
-            body += f"echo {json.dumps(stdout)}\n"
+            body += f"printf '%s\\n' {shlex.quote(stdout)}\n"
+        if stderr:
+            body += f"printf '%s\\n' {shlex.quote(stderr)} >&2\n"
         body += f"exit {exit_code}\n"
         script.write_text(body)
         script.chmod(0o755)
-        # Keep the real toolchain (jq, bash, coreutils) available too.
         return f"{bindir}:{os.environ.get('PATH', '')}"
 
     def _assert_meta_search(self, ctx):
@@ -92,35 +99,26 @@ class TestSessionStartHook:
         assert "composio login" in low, "must reference the CLI (composio login installs the skill)"
         assert "no api key" not in low, "must not say 'no API keys'"
 
-    def test_cli_present_signed_in(self, tmp_path):
-        # Exit 0 => signed in.
-        path = self._fake_composio(tmp_path, exit_code=0, stdout="user@example.com")
+    @pytest.mark.parametrize(
+        ("exit_code", "stdout", "stderr", "signed_in"),
+        [
+            pytest.param(0, "user@example.com", "", True, id="old-human-output"),
+            pytest.param(0, "", "", False, id="empty-output"),
+            pytest.param(0, " \t", "", False, id="whitespace-output"),
+            pytest.param(0, "", "Not logged in", False, id="logged-out-warning"),
+            pytest.param(0, '{"authenticated": false}', "", False, id="authenticated-false"),
+            pytest.param(0, '{"authenticated": true}', "", True, id="authenticated-true"),
+            pytest.param(0, '{"email": "agent@example.com"}', "", True, id="old-json-output"),
+            pytest.param(1, "", "", False, id="nonzero-exit"),
+            pytest.param(1, "account data", "", False, id="nonzero-with-output"),
+        ],
+    )
+    def test_auth_state(self, tmp_path, exit_code, stdout, stderr, signed_in):
+        path = self._fake_composio(tmp_path, exit_code, stdout, stderr)
         ctx = self._run(tmp_path, path=path)
         self._assert_meta_search(ctx)
-        assert "You're signed in to Composio." in ctx
-
-    def test_signed_in_is_exit_code_not_stdout(self, tmp_path):
-        # Exit 0 with EMPTY stdout must still count as signed in — sign-in is
-        # gated on the whoami exit code, never on stdout contents.
-        path = self._fake_composio(tmp_path, exit_code=0, stdout="")
-        ctx = self._run(tmp_path, path=path)
-        self._assert_meta_search(ctx)
-        assert "You're signed in to Composio." in ctx
-
-    def test_cli_present_not_signed_in(self, tmp_path):
-        # Non-zero exit => not signed in.
-        path = self._fake_composio(tmp_path, exit_code=1)
-        ctx = self._run(tmp_path, path=path)
-        self._assert_meta_search(ctx)
-        assert "composio login" in ctx
-
-    def test_not_signed_in_even_with_stdout(self, tmp_path):
-        # Non-zero exit must count as NOT signed in even if the CLI printed
-        # something to stdout (e.g. an error banner).
-        path = self._fake_composio(tmp_path, exit_code=1, stdout="Not logged in")
-        ctx = self._run(tmp_path, path=path)
-        self._assert_meta_search(ctx)
-        assert "composio login" in ctx
+        assert ("You're signed in to Composio." in ctx) == signed_in
+        assert ("Run `composio login` to connect." in ctx) != signed_in
 
     def test_cli_absent(self, tmp_path):
         # Minimal PATH with the standard toolchain but no `composio` on it.
@@ -148,6 +146,7 @@ class TestSessionStartHook:
             f"  cat <<'EOF'\n{json.dumps(toolkits)}\nEOF\n"
             "  exit 0\n"
             "fi\n"
+            "printf '%s\\n' '{\"account_type\":\"agent\",\"email\":\"agent@example.com\"}'\n"
             "exit 0\n"  # whoami and anything else: signed in
         )
         script.write_text(body)
