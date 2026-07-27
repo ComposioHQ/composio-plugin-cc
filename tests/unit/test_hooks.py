@@ -56,7 +56,8 @@ class TestSessionStartHook:
     SCRIPT = HOOKS_ROOT / "session-start.sh"
 
     def _run(self, tmp_path, path=None):
-        env = dict(os.environ, TMPDIR=str(tmp_path))
+        # HOME is pinned so tests never read the real ~/.composio.
+        env = dict(os.environ, TMPDIR=str(tmp_path), HOME=str(tmp_path))
         if path is not None:
             env["PATH"] = path
         proc = subprocess.run(
@@ -166,6 +167,90 @@ class TestSessionStartHook:
             f"cache should hold lowercased slugs, got {tokens}"
         )
         assert "google calendar" in tokens, "multi-word display names should be cached lowercased"
+
+    # ── Upgrade nudge ────────────────────────────────────────────────────
+
+    NUDGE = "newer Composio CLI"
+
+    def _fake_composio_versioned(self, tmp_path, version):
+        """Fake `composio`: given string for `version`, signed-in JSON otherwise."""
+        bindir = tmp_path / "bin"
+        bindir.mkdir(exist_ok=True)
+        script = bindir / "composio"
+        body = (
+            "#!/usr/bin/env bash\n"
+            'if [ "$1" = "version" ]; then\n'
+            f"  printf '%s\\n' {shlex.quote(version)}\n"
+            "  exit 0\n"
+            "fi\n"
+            "printf '%s\\n' '{\"authenticated\": true}'\n"
+            "exit 0\n"
+        )
+        script.write_text(body)
+        script.chmod(0o755)
+        return f"{bindir}:{os.environ.get('PATH', '')}"
+
+    def _write_update_cache(self, tmp_path, content):
+        cache_dir = tmp_path / ".composio"
+        cache_dir.mkdir(exist_ok=True)
+        (cache_dir / "update-check.json").write_text(content)
+
+    @pytest.mark.parametrize(
+        ("installed", "latest", "nudges"),
+        [
+            pytest.param("0.2.30", "0.2.32", True, id="older-stable-nudges"),
+            pytest.param("0.2.9", "0.2.10", True, id="numeric-not-lexicographic"),
+            pytest.param("0.2.32", "0.2.32", False, id="up-to-date-silent"),
+            pytest.param("0.3.0", "0.2.32", False, id="installed-newer-silent"),
+            pytest.param("0.2.32-beta.289", "0.2.32", False, id="beta-installed-silent"),
+            pytest.param("0.2.31", "0.3.0-beta.1", False, id="prerelease-latest-silent"),
+            pytest.param("weird output", "0.2.32", False, id="unparseable-version-silent"),
+        ],
+    )
+    def test_upgrade_nudge_version_matrix(self, tmp_path, installed, latest, nudges):
+        self._write_update_cache(
+            tmp_path,
+            json.dumps({"lastChecked": "2026-07-24T00:00:00.000Z", "latestVersion": latest}),
+        )
+        path = self._fake_composio_versioned(tmp_path, installed)
+        ctx = self._run(tmp_path, path=path)
+        self._assert_meta_search(ctx)
+        assert "You're signed in to Composio." in ctx
+        assert (self.NUDGE in ctx) == nudges
+        if nudges:
+            assert f"({latest})" in ctx
+            assert "composio upgrade" in ctx
+
+    def test_upgrade_nudge_cache_missing_is_silent(self, tmp_path):
+        path = self._fake_composio_versioned(tmp_path, "0.2.30")
+        ctx = self._run(tmp_path, path=path)
+        assert self.NUDGE not in ctx
+
+    @pytest.mark.parametrize(
+        "cache",
+        [
+            pytest.param("not json at all {{{", id="garbage"),
+            pytest.param("{}", id="empty-object"),
+            pytest.param('{"lastChecked": "2026-07-24T00:00:00.000Z"}', id="no-latest"),
+        ],
+    )
+    def test_upgrade_nudge_malformed_cache_is_silent(self, tmp_path, cache):
+        self._write_update_cache(tmp_path, cache)
+        path = self._fake_composio_versioned(tmp_path, "0.2.30")
+        ctx = self._run(tmp_path, path=path)
+        assert self.NUDGE not in ctx
+
+    def test_upgrade_nudge_needs_cli(self, tmp_path):
+        # No CLI to upgrade — the install line wins over the nudge.
+        self._write_update_cache(
+            tmp_path,
+            json.dumps({"lastChecked": "2026-07-24T00:00:00.000Z", "latestVersion": "0.2.32"}),
+        )
+        bindir = tmp_path / "emptybin"
+        bindir.mkdir()
+        ctx = self._run(tmp_path, path=f"{bindir}:/usr/bin:/bin")
+        assert "composio.dev/install" in ctx
+        assert self.NUDGE not in ctx
 
     def test_cli_absent_does_not_write_cache(self, tmp_path):
         # No CLI -> nothing to source; leave the cache untouched, never crash.
