@@ -56,8 +56,7 @@ class TestSessionStartHook:
     SCRIPT = HOOKS_ROOT / "session-start.sh"
 
     def _run(self, tmp_path, path=None):
-        # HOME is pinned to the sandbox so the upgrade-nudge cache read never
-        # sees the developer's real ~/.composio/update-check.json.
+        # HOME is pinned so tests never read the real ~/.composio.
         env = dict(os.environ, TMPDIR=str(tmp_path), HOME=str(tmp_path))
         if path is not None:
             env["PATH"] = path
@@ -170,17 +169,11 @@ class TestSessionStartHook:
         assert "google calendar" in tokens, "multi-word display names should be cached lowercased"
 
     # ── Upgrade nudge ────────────────────────────────────────────────────
-    # SessionStart compares `composio version` against the CLI's own
-    # ~/.composio/update-check.json release cache (local file only, no
-    # network) and appends an upgrade nudge only for a plain X.Y.Z install
-    # strictly older than a plain X.Y.Z latestVersion. Everything else —
-    # prereleases on either side, missing/malformed cache — is silent.
 
     NUDGE = "newer Composio CLI"
 
     def _fake_composio_versioned(self, tmp_path, version):
-        """Fake `composio` answering `version` with the given string and
-        anything else (whoami) with a signed-in JSON."""
+        """Fake `composio`: given string for `version`, signed-in JSON otherwise."""
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         script = bindir / "composio"
@@ -248,8 +241,7 @@ class TestSessionStartHook:
         assert self.NUDGE not in ctx
 
     def test_upgrade_nudge_needs_cli(self, tmp_path):
-        # Cache says a release exists, but there is no CLI to upgrade — the
-        # install line wins and no nudge appears.
+        # No CLI to upgrade — the install line wins over the nudge.
         self._write_update_cache(
             tmp_path,
             json.dumps({"lastChecked": "2026-07-24T00:00:00.000Z", "latestVersion": "0.2.32"}),
