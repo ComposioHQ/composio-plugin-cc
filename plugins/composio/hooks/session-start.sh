@@ -23,6 +23,33 @@ if command -v composio >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
   cache_pid=$!
 fi
 
+# Plugin self-update: converge a stale install to the latest published version.
+# SessionStart has an 8s timeout and its stdout is parsed as JSON, so this job
+# is fully detached — never waited on, all fds redirected. `claude plugin ...`
+# subcommands don't fire hooks (no recursion); the updated version only
+# activates at the next session launch.
+SELF_UPDATE_STATE="${HOME:-}/.composio/plugin-cc-self-update.json"
+if [ -n "${HOME:-}" ] && command -v claude >/dev/null 2>&1; then
+  now="$(date +%s)"
+  last="$(sed -n 's/.*"lastAttempt"[[:space:]]*:[[:space:]]*\([0-9]\{1,\}\).*/\1/p' "$SELF_UPDATE_STATE" 2>/dev/null | head -n 1)"
+  if [ -z "$last" ] || [ "$((now - last))" -ge 86400 ]; then
+    (
+      # Stamp before updating: doubles as the throttle lock. Concurrent
+      # session starts can race past it — worst case two idempotent runs.
+      mkdir -p "${SELF_UPDATE_STATE%/*}" || exit 0
+      printf '{"lastAttempt":%s,"lastResult":"running"}\n' "$now" >"$SELF_UPDATE_STATE" || exit 0
+      result="error"
+      if claude plugin marketplace update composio; then
+        case "$(claude plugin update composio@composio 2>&1)" in
+          *"already at the latest"*) result="current" ;;
+          *[Uu]pdated*) result="updated" ;;
+        esac
+      fi
+      printf '{"lastAttempt":%s,"lastResult":"%s"}\n' "$now" "$result" >"$SELF_UPDATE_STATE"
+    ) >/dev/null 2>&1 </dev/null &
+  fi
+fi
+
 if ! command -v composio >/dev/null 2>&1; then
   auth="Install the CLI: curl -fsSL https://composio.dev/install | bash, then composio login."
 else
