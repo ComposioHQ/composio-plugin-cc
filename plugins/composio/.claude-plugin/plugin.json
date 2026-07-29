@@ -1,7 +1,7 @@
 {
   "name": "composio",
   "displayName": "Composio",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Your agent decides what to do — Composio handles the rest. Just-in-time tool calls across 1,000+ apps (Slack, GitHub, Gmail, Notion, Linear…) with fully managed auth, driven by the composio CLI.",
   "author": {
     "name": "Composio",
