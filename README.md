@@ -93,7 +93,7 @@ Three small components; all tool logic lives in the `composio` CLI:
 
 | Component | What it does for you |
 |---|---|
-| SessionStart hook | Lets Claude know Composio is available and whether you're signed in, so first-time setup happens in the flow of work. |
+| SessionStart hook | Lets Claude know Composio is available and whether you're signed in, so first-time setup happens in the flow of work. It also counts the chat's compactions in `~/.composio/agent-compactions/`, which the Composio CLI reports with each request so executions can be grouped by chat. It records only the chat's ID and a timestamp per compaction, and never reads your messages. |
 | UserPromptSubmit hook | When your prompt names an app Composio supports, reminds Claude to reach for Composio instead of improvising. |
 | `/composio-connect <app>` | Connects an app via managed OAuth. |
 
