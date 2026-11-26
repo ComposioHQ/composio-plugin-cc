@@ -2,7 +2,62 @@
 # Inject Composio guidance and auth status, and refresh the prompt hook's cache.
 
 set -u
-cat >/dev/null 2>&1 || true
+hook_input="$(cat 2>/dev/null || true)"
+
+# Read a top-level string field from the hook input. jq is optional.
+hook_field() {
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$hook_input" | jq -r --arg k "$1" '.[$k] | strings' 2>/dev/null
+  else
+    printf '%s' "$hook_input" | tr -d '\n' \
+      | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" | head -n 1
+  fi
+}
+
+# Agent compaction state, read by the Composio CLI: one file per chat at
+# ~/.composio/agent-compactions/<host>/<session id>, created empty when the chat
+# starts, with one line appended per compaction. The contract is "Agent
+# compaction state" in the CLI README (ComposioHQ/composio, ts/packages/cli).
+# Only the host's session ID and a timestamp are stored; nothing leaves the machine.
+record_agent_session() {
+  local id_pattern='^[A-Za-z0-9_-]{1,128}$'
+  local host="claude" session_id source dir file
+  session_id="$(hook_field session_id)"
+  source="$(hook_field source)"
+  # A pair exported by an outer chat's hook wins: the CLI resolves that pair,
+  # so this chat's compactions are recorded under it.
+  if [ -n "${COMPOSIO_AGENT_HOST:-}" ] && [ -n "${COMPOSIO_AGENT_SESSION_ID:-}" ]; then
+    host="$COMPOSIO_AGENT_HOST"
+    session_id="$COMPOSIO_AGENT_SESSION_ID"
+  fi
+  case "$host" in claude | codex) ;; *) return 0 ;; esac
+  [[ "$session_id" =~ $id_pattern ]] || return 0
+  [ -n "${HOME:-}" ] || return 0
+
+  dir="$HOME/.composio/agent-compactions/$host"
+  file="$dir/$session_id"
+  (umask 077 && mkdir -p "$dir") || return 0
+  [ -L "$file" ] && return 0
+  if [ "$source" = "compact" ]; then
+    printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >>"$file" || return 0
+  else
+    # Creates the file without truncating it, and marks the chat as recently used.
+    touch "$file" || return 0
+  fi
+  if [ "$source" = "startup" ]; then
+    # Forget chats untouched for 90 days. A resume touches its file first.
+    find "$HOME/.composio/agent-compactions" -mindepth 2 -maxdepth 2 -type f -mtime +90 \
+      -exec rm -f {} + 2>/dev/null
+  fi
+
+  # Later Bash tool commands, and any agent started from them, get the pair.
+  if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+    printf 'export COMPOSIO_AGENT_HOST=%s\nexport COMPOSIO_AGENT_SESSION_ID=%s\n' \
+      "$host" "$session_id" >>"$CLAUDE_ENV_FILE"
+  fi
+  return 0
+}
+record_agent_session >/dev/null 2>&1 </dev/null || true
 
 CACHE="${TMPDIR:-/tmp}/composio-plugin-toolkits.cache"
 
